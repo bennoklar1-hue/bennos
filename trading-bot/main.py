@@ -12,8 +12,8 @@ log = logging.getLogger("main")
 def main():
     config.validate()
     log.info(
-        "Starting bot | pair=%s budget=%sEUR dry_run=%s",
-        config.TRADING_PAIR, config.MAX_TRADE_EUR, config.DRY_RUN,
+        "Starting bot | pairs=%s risk=%s budget=%sEUR dry_run=%s",
+        config.TRADING_PAIRS, config.RISK_LEVEL, config.MAX_TRADE_EUR, config.DRY_RUN,
     )
     exchange = ExchangeClient()
 

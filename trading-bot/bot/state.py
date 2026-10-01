@@ -3,7 +3,7 @@ import os
 
 STATE_PATH = os.path.join(os.path.dirname(__file__), "..", "state.json")
 
-EMPTY_STATE = {"position_amount": 0.0, "entry_price": None, "invested_eur": 0.0}
+EMPTY_STATE = {"pair": None, "position_amount": 0.0, "entry_price": None, "invested_eur": 0.0}
 
 
 def load_state() -> dict:

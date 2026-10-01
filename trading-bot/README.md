@@ -24,6 +24,10 @@ Startet standardmäßig im Dry-Run (keine echten Trades), bis du `DRY_RUN=false`
    ```
    Dann `.env` öffnen und ausfüllen: `XAI_API_KEY`, `EXCHANGE_API_KEY`, `EXCHANGE_API_SECRET`.
    `MAX_TRADE_EUR` ist bereits auf `50` gesetzt. `DRY_RUN=true` lassen für den ersten Test.
+   - `TRADING_PAIRS`: kommagetrennte Liste, z. B. `BTC/USDT,ETH/USDT,SOL/USDT` — Grok
+     wählt selbst, welches davon (falls überhaupt) gekauft wird.
+   - `RISK_LEVEL`: `conservative` (nur bei sehr klaren Signalen handeln),
+     `balanced` (Standard) oder `aggressive` (handelt auch bei kleineren Chancen).
 5. **Dry-Run starten** (keine echten Trades, nur Logging):
    ```bash
    python3 main.py
