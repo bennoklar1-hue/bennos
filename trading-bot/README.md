@@ -84,6 +84,21 @@ Lokal läuft der Bot nur, solange `main.py` läuft. Für 24/7-Betrieb:
 - `systemd`-Service / `screen`/`tmux`-Session auf einem Server, die `python3 main.py`
   dauerhaft am Laufen hält.
 
+## Backtest (schnelle Antwort statt Wochen warten)
+
+```bash
+python3 backtest.py
+```
+
+Simuliert die Strategie gegen 45 Tage echte, vergangene Kursdaten (alle 4
+Stunden eine Entscheidung statt alle paar Minuten, um Grok-Kosten klein zu
+halten — ca. 270 Anfragen, grob 1-2 $ vom xAI-Guthaben). Braucht keinen
+Exchange-API-Key (nur öffentliche Kursdaten), nur `XAI_API_KEY` in der
+`.env`. Am Ende steht im Terminal und in `backtest_result.json`:
+Gesamtergebnis des Bots vs. "einfach kaufen und halten" im selben Zeitraum,
+Anzahl Trades. Läuft automatisch durch, keine Eingabe nötig, dauert ca.
+20-45 Minuten.
+
 ## Risiko
 
 Das ist ein einfacher, selbst gebauter Bot ohne Backtesting-Historie. Die LLM-Entscheidung
