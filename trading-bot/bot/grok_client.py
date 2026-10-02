@@ -28,10 +28,16 @@ def build_system_prompt() -> str:
     return (
         "You are a crypto trading assistant. Risk setting: "
         f"{config.RISK_LEVEL}. {risk_text} "
-        "You will be given recent price data for several trading pairs, the "
-        "bot's currently open positions (if any), and its free available "
-        "capital. You can hold positions in several different pairs at the "
-        "same time - you are not limited to one. Respond with ONLY a JSON "
+        "For each watched pair you will be given: the current price, its "
+        "percent change over the recent period, a short-term moving average "
+        "(SMA5), a longer-term moving average (SMA20), and RSI14 (0-100; "
+        "above 70 typically means overbought/due for a pullback, below 30 "
+        "means oversold/due for a bounce; SMA5 above SMA20 suggests upward "
+        "momentum, SMA5 below SMA20 suggests downward momentum). You will "
+        "also be given the bot's currently open positions (if any) and its "
+        "free available capital. You can hold positions in several different "
+        "pairs at the same time - you are not limited to one. Respond with "
+        "ONLY a JSON "
         "object, no other text, in this exact shape: "
         '{"action": "buy" | "sell" | "hold", "pair": "<pair or null>", '
         '"confidence": "high" | "medium" | "low", "reason": "<one short '

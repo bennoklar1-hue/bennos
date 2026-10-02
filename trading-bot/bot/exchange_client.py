@@ -12,7 +12,7 @@ class ExchangeClient:
             "enableRateLimit": True,
         })
 
-    def fetch_ohlcv(self, pair: str, timeframe="15m", limit=20):
+    def fetch_ohlcv(self, pair: str, timeframe="15m", limit=30):
         return self.exchange.fetch_ohlcv(pair, timeframe=timeframe, limit=limit)
 
     def fetch_price(self, pair: str):

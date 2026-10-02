@@ -3,6 +3,7 @@ import logging
 from .config import config
 from .exchange_client import ExchangeClient
 from .grok_client import ask_grok
+from .indicators import summarize
 from .state import load_state, save_state
 
 log = logging.getLogger("strategy")
@@ -11,7 +12,13 @@ log = logging.getLogger("strategy")
 def build_market_summary(prices_by_pair: dict, state: dict) -> str:
     lines = [f"Risk level: {config.RISK_LEVEL}", "Watched pairs:"]
     for pair, closes in prices_by_pair.items():
-        lines.append(f"  {pair}: last {len(closes)} close prices: {closes}")
+        ind = summarize(closes)
+        fmt = lambda v, suffix="": f"{v:.4f}{suffix}" if v is not None else "n/a"
+        lines.append(
+            f"  {pair}: price {fmt(ind['last_price'])}, change over period "
+            f"{fmt(ind['pct_change'], '%')}, SMA5 {fmt(ind['sma_short'])}, "
+            f"SMA20 {fmt(ind['sma_long'])}, RSI14 {fmt(ind['rsi'])}"
+        )
 
     if state["positions"]:
         lines.append("Open positions:")

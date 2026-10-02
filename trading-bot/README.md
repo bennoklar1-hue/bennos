@@ -59,6 +59,16 @@ Jede Kauf-Entscheidung von Grok kommt mit einer Sicherheits-Einschätzung:
 So muss er sich nicht zwischen "ganz oder gar nicht" entscheiden, wenn ein
 Signal nur mittelmäßig überzeugend ist.
 
+## Echte Indikatoren statt roher Kursliste
+
+Grok bekommt pro Coin nicht mehr nur eine nackte Liste von Preisen, sondern
+berechnete Indikatoren: prozentuale Veränderung, **SMA5/SMA20** (kurz-/
+längerfristiger gleitender Durchschnitt) und **RSI14**. Das sind Standard-
+Werkzeuge der technischen Analyse statt reinem "Zahlen angucken":
+- SMA5 über SMA20 → Aufwärts-Momentum, darunter → Abwärts-Momentum
+- RSI über 70 → möglicherweise überkauft (Rückschlag fällig)
+- RSI unter 30 → möglicherweise überverkauft (Erholung fällig)
+
 ## Sicherheitsmechanismen
 
 - **Stop-Loss**: verkauft eine Position automatisch, wenn ihr Kurs seit dem
