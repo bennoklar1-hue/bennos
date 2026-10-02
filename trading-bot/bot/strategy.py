@@ -48,10 +48,12 @@ def run_once(exchange: ExchangeClient):
 
     check_stop_losses(exchange, state)
 
-    prices_by_pair = {
-        pair: [candle[4] for candle in exchange.fetch_ohlcv(pair)]
-        for pair in config.TRADING_PAIRS
-    }
+    prices_by_pair = {}
+    for pair in config.TRADING_PAIRS:
+        try:
+            prices_by_pair[pair] = [candle[4] for candle in exchange.fetch_ohlcv(pair)]
+        except Exception:
+            log.exception("Failed to fetch data for %s, skipping it this cycle.", pair)
 
     summary = build_market_summary(prices_by_pair, state)
     decision = ask_grok(summary)
