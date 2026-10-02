@@ -13,35 +13,40 @@ def build_market_summary(prices_by_pair: dict, state: dict) -> str:
     for pair, closes in prices_by_pair.items():
         lines.append(f"  {pair}: last {len(closes)} close prices: {closes}")
 
-    if state["position_amount"] > 0:
-        lines.append(f"Current position: open on {state['pair']}, entry price {state['entry_price']}")
+    if state["positions"]:
+        lines.append("Open positions:")
+        for pair, pos in state["positions"].items():
+            lines.append(f"  {pair}: entry price {pos['entry_price']}")
     else:
-        lines.append(f"Current position: none, available capital: {state['capital_eur']:.2f} EUR")
+        lines.append("Open positions: none")
 
+    lines.append(f"Free available capital: {state['capital_eur']:.2f} EUR")
     return "\n".join(lines)
 
 
-def check_stop_loss(exchange: ExchangeClient, state: dict) -> bool:
-    if state["position_amount"] <= 0 or not state["entry_price"]:
-        return False
-
-    current_price = exchange.fetch_price(state["pair"])
-    drop_percent = (state["entry_price"] - current_price) / state["entry_price"] * 100
-    if drop_percent >= config.STOP_LOSS_PERCENT:
-        log.warning("Stop-loss triggered on %s at %.2f%% drop, selling.", state["pair"], drop_percent)
-        result = exchange.create_market_sell(state["pair"], state["position_amount"])
-        new_capital = state["position_amount"] * result["price"]
-        log.info("Stop-loss sell result: %s | new capital: %.2f EUR", result, new_capital)
-        save_state({"pair": None, "position_amount": 0.0, "entry_price": None, "capital_eur": new_capital})
-        return True
-    return False
+def check_stop_losses(exchange: ExchangeClient, state: dict) -> bool:
+    changed = False
+    for pair in list(state["positions"].keys()):
+        pos = state["positions"][pair]
+        current_price = exchange.fetch_price(pair)
+        drop_percent = (pos["entry_price"] - current_price) / pos["entry_price"] * 100
+        if drop_percent >= config.STOP_LOSS_PERCENT:
+            log.warning("Stop-loss triggered on %s at %.2f%% drop, selling.", pair, drop_percent)
+            result = exchange.create_market_sell(pair, pos["amount"])
+            proceeds = pos["amount"] * result["price"]
+            state["capital_eur"] += proceeds
+            del state["positions"][pair]
+            log.info("Stop-loss sell result: %s | free capital now: %.2f EUR", result, state["capital_eur"])
+            changed = True
+    if changed:
+        save_state(state)
+    return changed
 
 
 def run_once(exchange: ExchangeClient):
     state = load_state()
 
-    if check_stop_loss(exchange, state):
-        return
+    check_stop_losses(exchange, state)
 
     prices_by_pair = {
         pair: [candle[4] for candle in exchange.fetch_ohlcv(pair)]
@@ -53,33 +58,35 @@ def run_once(exchange: ExchangeClient):
     log.info("Grok decision: %s", decision)
 
     if decision["action"] == "buy":
-        if state["position_amount"] > 0:
-            log.info("Already in a position, ignoring buy signal.")
-            return
         pair = decision.get("pair")
         if pair not in config.TRADING_PAIRS:
             log.info("Buy signal named an unwatched pair (%s), ignoring.", pair)
             return
-        if state["capital_eur"] <= 0:
+        if pair in state["positions"]:
+            log.info("Already holding %s, ignoring buy signal.", pair)
+            return
+        invest_amount = state["capital_eur"] * decision["size_fraction"]
+        if invest_amount <= 0:
             log.info("No capital left, ignoring buy signal.")
             return
-        result = exchange.create_market_buy(pair, state["capital_eur"])
-        log.info("Buy result on %s: %s", pair, result)
-        save_state({
-            "pair": pair,
-            "position_amount": result["amount"],
-            "entry_price": result["price"],
-            "capital_eur": state["capital_eur"],
-        })
+        result = exchange.create_market_buy(pair, invest_amount)
+        log.info("Buy result on %s (%.0f%% of free capital): %s", pair, decision["size_fraction"] * 100, result)
+        state["capital_eur"] -= invest_amount
+        state["positions"][pair] = {"amount": result["amount"], "entry_price": result["price"]}
+        save_state(state)
 
     elif decision["action"] == "sell":
-        if state["position_amount"] <= 0:
-            log.info("No open position, ignoring sell signal.")
+        pair = decision.get("pair")
+        if pair not in state["positions"]:
+            log.info("No open position on %s, ignoring sell signal.", pair)
             return
-        result = exchange.create_market_sell(state["pair"], state["position_amount"])
-        new_capital = state["position_amount"] * result["price"]
-        log.info("Sell result on %s: %s | new capital: %.2f EUR", state["pair"], result, new_capital)
-        save_state({"pair": None, "position_amount": 0.0, "entry_price": None, "capital_eur": new_capital})
+        pos = state["positions"][pair]
+        result = exchange.create_market_sell(pair, pos["amount"])
+        proceeds = pos["amount"] * result["price"]
+        state["capital_eur"] += proceeds
+        del state["positions"][pair]
+        log.info("Sell result on %s: %s | free capital now: %.2f EUR", pair, result, state["capital_eur"])
+        save_state(state)
 
     else:
         log.info("Holding, no action taken.")

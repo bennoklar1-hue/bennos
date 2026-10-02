@@ -8,10 +8,8 @@ STATE_PATH = os.path.join(os.path.dirname(__file__), "..", "state.json")
 
 def _empty_state() -> dict:
     return {
-        "pair": None,
-        "position_amount": 0.0,
-        "entry_price": None,
         "capital_eur": config.STARTING_CAPITAL_EUR,
+        "positions": {},  # pair -> {"amount": float, "entry_price": float}
     }
 
 

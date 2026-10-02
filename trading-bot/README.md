@@ -45,13 +45,27 @@ wert ist, und setzt genau diesen Betrag beim nächsten Kauf ein — kein manuell
 Nachstellen in der `.env` nötig. Macht er Gewinn, wird die nächste Position
 entsprechend größer; macht er Verlust, entsprechend kleiner.
 
+## Mehrere Positionen gleichzeitig + Positionsgröße nach Sicherheit
+
+Der Bot ist nicht mehr auf eine einzige offene Position begrenzt — er kann in
+mehreren der `TRADING_PAIRS` gleichzeitig investiert sein (z. B. BTC und ETH
+zur selben Zeit), solange noch freies Kapital übrig ist.
+
+Jede Kauf-Entscheidung von Grok kommt mit einer Sicherheits-Einschätzung:
+- **high** → setzt das komplette verfügbare freie Kapital ein
+- **medium** → setzt die Hälfte ein
+- **low** → setzt ein Viertel ein
+
+So muss er sich nicht zwischen "ganz oder gar nicht" entscheiden, wenn ein
+Signal nur mittelmäßig überzeugend ist.
+
 ## Sicherheitsmechanismen
 
-- **Stop-Loss**: verkauft automatisch, wenn der Kurs seit dem Einstieg um
-  `STOP_LOSS_PERCENT` gefallen ist — unabhängig davon, was Grok sagt.
-- **Ein Trade gleichzeitig**: kauft nicht nach, solange eine Position offen ist.
-- **State** liegt in `state.json` (wird nicht committed) — merkt sich Position
-  und aktuelles Kapital über Neustarts hinweg.
+- **Stop-Loss**: verkauft eine Position automatisch, wenn ihr Kurs seit dem
+  Einstieg um `STOP_LOSS_PERCENT` gefallen ist — unabhängig davon, was Grok
+  sagt. Gilt für jede offene Position einzeln.
+- **State** liegt in `state.json` (wird nicht committed) — merkt sich alle
+  offenen Positionen und das freie Kapital über Neustarts hinweg.
 
 ## Laufen lassen, auch wenn dein PC aus ist
 

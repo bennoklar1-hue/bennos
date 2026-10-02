@@ -5,6 +5,8 @@ from .config import config
 
 XAI_URL = "https://api.x.ai/v1/chat/completions"
 
+CONFIDENCE_TO_FRACTION = {"high": 1.0, "medium": 0.5, "low": 0.25}
+
 RISK_INSTRUCTIONS = {
     "conservative": (
         "Be very cautious. Only choose buy or sell when the signal is strong and "
@@ -26,15 +28,22 @@ def build_system_prompt() -> str:
     return (
         "You are a crypto trading assistant. Risk setting: "
         f"{config.RISK_LEVEL}. {risk_text} "
-        "You will be given recent price data for several trading pairs and the "
-        "bot's current position state. Respond with ONLY a JSON object, no other "
-        "text, in this exact shape: "
+        "You will be given recent price data for several trading pairs, the "
+        "bot's currently open positions (if any), and its free available "
+        "capital. You can hold positions in several different pairs at the "
+        "same time - you are not limited to one. Respond with ONLY a JSON "
+        "object, no other text, in this exact shape: "
         '{"action": "buy" | "sell" | "hold", "pair": "<pair or null>", '
-        '"reason": "<one short sentence>"}. '
-        "Only choose buy if there is no open position yet, and set pair to the "
-        "single pair (from the given list) you want to buy. Only choose sell if "
-        "there is an open position, and set pair to that exact open position's "
-        "pair. If action is hold, set pair to null."
+        '"confidence": "high" | "medium" | "low", "reason": "<one short '
+        'sentence>"}. '
+        "Only choose buy for a pair that is not already an open position, "
+        "using free capital. Only choose sell for a pair that is currently an "
+        "open position. If action is hold, set pair to null. "
+        "Set confidence to how strong and unambiguous the signal is - this "
+        "controls position size: high means use all available free capital, "
+        "medium means use half of it, low means use a quarter. Use medium or "
+        "low instead of skipping a reasonable but not fully certain "
+        "opportunity."
     )
 
 
@@ -59,10 +68,12 @@ def ask_grok(market_summary: str) -> dict:
     try:
         decision = json.loads(content)
     except json.JSONDecodeError:
-        return {"action": "hold", "pair": None, "reason": f"unparseable model response: {content[:200]}"}
+        return {"action": "hold", "pair": None, "size_fraction": 0.0, "reason": f"unparseable model response: {content[:200]}"}
 
     if decision.get("action") not in ("buy", "sell", "hold"):
-        return {"action": "hold", "pair": None, "reason": "model returned an invalid action"}
+        return {"action": "hold", "pair": None, "size_fraction": 0.0, "reason": "model returned an invalid action"}
 
     decision.setdefault("pair", None)
+    confidence = str(decision.get("confidence", "medium")).strip().lower()
+    decision["size_fraction"] = CONFIDENCE_TO_FRACTION.get(confidence, 0.5)
     return decision
