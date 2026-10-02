@@ -18,7 +18,7 @@ class Config:
 
     TRADING_PAIRS = [p.strip() for p in os.getenv("TRADING_PAIRS", "BTC/USDT").split(",") if p.strip()]
     RISK_LEVEL = os.getenv("RISK_LEVEL", "balanced").strip().lower()
-    MAX_TRADE_EUR = float(os.getenv("MAX_TRADE_EUR", "50"))
+    STARTING_CAPITAL_EUR = float(os.getenv("STARTING_CAPITAL_EUR", "50"))
     STOP_LOSS_PERCENT = float(os.getenv("STOP_LOSS_PERCENT", "10"))
     POLL_INTERVAL_MINUTES = int(os.getenv("POLL_INTERVAL_MINUTES", "15"))
 

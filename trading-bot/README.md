@@ -23,7 +23,7 @@ Startet standardmäßig im Dry-Run (keine echten Trades), bis du `DRY_RUN=false`
    cp .env.example .env
    ```
    Dann `.env` öffnen und ausfüllen: `XAI_API_KEY`, `EXCHANGE_API_KEY`, `EXCHANGE_API_SECRET`.
-   `MAX_TRADE_EUR` ist bereits auf `50` gesetzt. `DRY_RUN=true` lassen für den ersten Test.
+   `STARTING_CAPITAL_EUR` ist bereits auf `50` gesetzt. `DRY_RUN=true` lassen für den ersten Test.
    - `TRADING_PAIRS`: kommagetrennte Liste, z. B. `BTC/USDT,ETH/USDT,SOL/USDT` — Grok
      wählt selbst, welches davon (falls überhaupt) gekauft wird.
    - `RISK_LEVEL`: `conservative` (nur bei sehr klaren Signalen handeln),
@@ -35,17 +35,23 @@ Startet standardmäßig im Dry-Run (keine echten Trades), bis du `DRY_RUN=false`
    Lass es eine Weile laufen und beobachte in den Logs, ob die Entscheidungen von Grok
    sinnvoll aussehen, bevor du live gehst.
 6. **Live schalten**: in `.env` `DRY_RUN=false` setzen und neu starten.
-   Ab jetzt werden echte Market-Orders auf der Exchange ausgeführt, begrenzt auf
-   dein `MAX_TRADE_EUR`-Budget.
+   Ab jetzt werden echte Market-Orders auf der Exchange ausgeführt.
+
+## Kapital wächst (und schrumpft) automatisch mit
+
+`STARTING_CAPITAL_EUR` ist nur der **Startwert**. Nach jedem abgeschlossenen Trade
+merkt sich der Bot in `state.json`, wie viel sein Kapital durch Gewinn/Verlust jetzt
+wert ist, und setzt genau diesen Betrag beim nächsten Kauf ein — kein manuelles
+Nachstellen in der `.env` nötig. Macht er Gewinn, wird die nächste Position
+entsprechend größer; macht er Verlust, entsprechend kleiner.
 
 ## Sicherheitsmechanismen
 
-- **Budget-Cap**: kauft nie mehr als `MAX_TRADE_EUR` insgesamt.
 - **Stop-Loss**: verkauft automatisch, wenn der Kurs seit dem Einstieg um
   `STOP_LOSS_PERCENT` gefallen ist — unabhängig davon, was Grok sagt.
 - **Ein Trade gleichzeitig**: kauft nicht nach, solange eine Position offen ist.
 - **State** liegt in `state.json` (wird nicht committed) — merkt sich Position
-  über Neustarts hinweg.
+  und aktuelles Kapital über Neustarts hinweg.
 
 ## Laufen lassen, auch wenn dein PC aus ist
 

@@ -16,9 +16,8 @@ def build_market_summary(prices_by_pair: dict, state: dict) -> str:
     if state["position_amount"] > 0:
         lines.append(f"Current position: open on {state['pair']}, entry price {state['entry_price']}")
     else:
-        lines.append("Current position: none")
+        lines.append(f"Current position: none, available capital: {state['capital_eur']:.2f} EUR")
 
-    lines.append(f"Invested so far: {state['invested_eur']} EUR out of a {config.MAX_TRADE_EUR} EUR budget")
     return "\n".join(lines)
 
 
@@ -31,8 +30,9 @@ def check_stop_loss(exchange: ExchangeClient, state: dict) -> bool:
     if drop_percent >= config.STOP_LOSS_PERCENT:
         log.warning("Stop-loss triggered on %s at %.2f%% drop, selling.", state["pair"], drop_percent)
         result = exchange.create_market_sell(state["pair"], state["position_amount"])
-        log.info("Stop-loss sell result: %s", result)
-        save_state({"pair": None, "position_amount": 0.0, "entry_price": None, "invested_eur": 0.0})
+        new_capital = state["position_amount"] * result["price"]
+        log.info("Stop-loss sell result: %s | new capital: %.2f EUR", result, new_capital)
+        save_state({"pair": None, "position_amount": 0.0, "entry_price": None, "capital_eur": new_capital})
         return True
     return False
 
@@ -60,17 +60,16 @@ def run_once(exchange: ExchangeClient):
         if pair not in config.TRADING_PAIRS:
             log.info("Buy signal named an unwatched pair (%s), ignoring.", pair)
             return
-        remaining_budget = config.MAX_TRADE_EUR - state["invested_eur"]
-        if remaining_budget <= 0:
-            log.info("Budget of %s EUR exhausted, ignoring buy signal.", config.MAX_TRADE_EUR)
+        if state["capital_eur"] <= 0:
+            log.info("No capital left, ignoring buy signal.")
             return
-        result = exchange.create_market_buy(pair, remaining_budget)
+        result = exchange.create_market_buy(pair, state["capital_eur"])
         log.info("Buy result on %s: %s", pair, result)
         save_state({
             "pair": pair,
             "position_amount": result["amount"],
             "entry_price": result["price"],
-            "invested_eur": state["invested_eur"] + remaining_budget,
+            "capital_eur": state["capital_eur"],
         })
 
     elif decision["action"] == "sell":
@@ -78,8 +77,9 @@ def run_once(exchange: ExchangeClient):
             log.info("No open position, ignoring sell signal.")
             return
         result = exchange.create_market_sell(state["pair"], state["position_amount"])
-        log.info("Sell result on %s: %s", state["pair"], result)
-        save_state({"pair": None, "position_amount": 0.0, "entry_price": None, "invested_eur": 0.0})
+        new_capital = state["position_amount"] * result["price"]
+        log.info("Sell result on %s: %s | new capital: %.2f EUR", state["pair"], result, new_capital)
+        save_state({"pair": None, "position_amount": 0.0, "entry_price": None, "capital_eur": new_capital})
 
     else:
         log.info("Holding, no action taken.")
