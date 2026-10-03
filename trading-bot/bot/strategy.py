@@ -8,6 +8,24 @@ from .state import load_state, save_state
 
 log = logging.getLogger("strategy")
 
+MIN_ORDER_EUR = 10.0
+
+
+def net_amount_after_fee(result: dict, base_asset: str) -> float:
+    amount = result["amount"]
+    fee = result.get("fee")
+    if fee and fee.get("currency") == base_asset and fee.get("cost"):
+        amount -= fee["cost"]
+    return amount * 0.999
+
+
+def net_proceeds_after_fee(result: dict, quote_asset: str) -> float:
+    proceeds = result.get("cost") or result["amount"] * result["price"]
+    fee = result.get("fee")
+    if fee and fee.get("currency") == quote_asset and fee.get("cost"):
+        proceeds -= fee["cost"]
+    return proceeds
+
 
 def build_market_summary(prices_by_pair: dict, state: dict) -> str:
     lines = [f"Risk level: {config.RISK_LEVEL}", "Watched pairs:"]
@@ -40,7 +58,8 @@ def check_stop_losses(exchange: ExchangeClient, state: dict) -> bool:
         if drop_percent >= config.STOP_LOSS_PERCENT:
             log.warning("Stop-loss triggered on %s at %.2f%% drop, selling.", pair, drop_percent)
             result = exchange.create_market_sell(pair, pos["amount"])
-            proceeds = pos["amount"] * result["price"]
+            quote_asset = pair.split("/")[1]
+            proceeds = net_proceeds_after_fee(result, quote_asset)
             state["capital_eur"] += proceeds
             del state["positions"][pair]
             log.info("Stop-loss sell result: %s | free capital now: %.2f EUR", result, state["capital_eur"])
@@ -75,13 +94,18 @@ def run_once(exchange: ExchangeClient):
             log.info("Already holding %s, ignoring buy signal.", pair)
             return
         invest_amount = state["capital_eur"] * decision["size_fraction"]
-        if invest_amount <= 0:
-            log.info("No capital left, ignoring buy signal.")
+        if invest_amount < MIN_ORDER_EUR:
+            log.info(
+                "Investment amount %.2f EUR below minimum order size (%.2f EUR), skipping buy signal.",
+                invest_amount, MIN_ORDER_EUR,
+            )
             return
         result = exchange.create_market_buy(pair, invest_amount)
         log.info("Buy result on %s (%.0f%% of free capital): %s", pair, decision["size_fraction"] * 100, result)
+        base_asset = pair.split("/")[0]
+        amount = net_amount_after_fee(result, base_asset)
         state["capital_eur"] -= invest_amount
-        state["positions"][pair] = {"amount": result["amount"], "entry_price": result["price"]}
+        state["positions"][pair] = {"amount": amount, "entry_price": result["price"]}
         save_state(state)
 
     elif decision["action"] == "sell":
@@ -91,7 +115,8 @@ def run_once(exchange: ExchangeClient):
             return
         pos = state["positions"][pair]
         result = exchange.create_market_sell(pair, pos["amount"])
-        proceeds = pos["amount"] * result["price"]
+        quote_asset = pair.split("/")[1]
+        proceeds = net_proceeds_after_fee(result, quote_asset)
         state["capital_eur"] += proceeds
         del state["positions"][pair]
         log.info("Sell result on %s: %s | free capital now: %.2f EUR", pair, result, state["capital_eur"])
