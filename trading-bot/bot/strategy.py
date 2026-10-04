@@ -57,7 +57,15 @@ def check_stop_losses(exchange: ExchangeClient, state: dict) -> bool:
         drop_percent = (pos["entry_price"] - current_price) / pos["entry_price"] * 100
         if drop_percent >= config.STOP_LOSS_PERCENT:
             log.warning("Stop-loss triggered on %s at %.2f%% drop, selling.", pair, drop_percent)
-            result = exchange.create_market_sell(pair, pos["amount"])
+            try:
+                result = exchange.create_market_sell(pair, pos["amount"])
+            except Exception as e:
+                log.error(
+                    "Stop-loss sell on %s failed (position likely below exchange minimum order "
+                    "size, ~%.2f EUR) - can't auto-sell, needs manual clearing on the exchange: %s",
+                    pair, pos["amount"] * current_price, e,
+                )
+                continue
             quote_asset = pair.split("/")[1]
             proceeds = net_proceeds_after_fee(result, quote_asset)
             state["capital_eur"] += proceeds
@@ -114,7 +122,14 @@ def run_once(exchange: ExchangeClient):
             log.info("No open position on %s, ignoring sell signal.", pair)
             return
         pos = state["positions"][pair]
-        result = exchange.create_market_sell(pair, pos["amount"])
+        try:
+            result = exchange.create_market_sell(pair, pos["amount"])
+        except Exception as e:
+            log.error(
+                "Sell on %s failed (position likely below exchange minimum order size) - "
+                "can't auto-sell, needs manual clearing on the exchange: %s", pair, e,
+            )
+            return
         quote_asset = pair.split("/")[1]
         proceeds = net_proceeds_after_fee(result, quote_asset)
         state["capital_eur"] += proceeds
