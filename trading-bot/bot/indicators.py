@@ -28,11 +28,24 @@ def pct_change(values: list):
     return (values[-1] - values[0]) / values[0] * 100
 
 
-def summarize(closes: list) -> dict:
+def volume_ratio(volumes: list):
+    if len(volumes) < 2:
+        return None
+    baseline = volumes[:-1]
+    avg = sum(baseline) / len(baseline)
+    if avg == 0:
+        return None
+    return volumes[-1] / avg
+
+
+def summarize(candles: list) -> dict:
+    closes = [c[4] for c in candles]
+    volumes = [c[5] for c in candles]
     return {
         "last_price": closes[-1] if closes else None,
         "pct_change": pct_change(closes),
         "sma_short": sma(closes, 5),
         "sma_long": sma(closes, 20),
         "rsi": rsi(closes, 14),
+        "volume_ratio": volume_ratio(volumes),
     }

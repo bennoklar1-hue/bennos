@@ -4,6 +4,7 @@ from .config import config
 from .exchange_client import ExchangeClient
 from .grok_client import ask_grok
 from .indicators import summarize
+from .sentiment import fetch_fear_greed
 from .state import load_state, save_state
 
 log = logging.getLogger("strategy")
@@ -27,15 +28,22 @@ def net_proceeds_after_fee(result: dict, quote_asset: str) -> float:
     return proceeds
 
 
-def build_market_summary(prices_by_pair: dict, state: dict) -> str:
-    lines = [f"Risk level: {config.RISK_LEVEL}", "Watched pairs:"]
-    for pair, closes in prices_by_pair.items():
-        ind = summarize(closes)
+def build_market_summary(candles_by_pair: dict, state: dict) -> str:
+    lines = [f"Risk level: {config.RISK_LEVEL}"]
+
+    fng = fetch_fear_greed()
+    if fng:
+        lines.append(f"Crypto Fear & Greed Index: {fng['value']}/100 ({fng['classification']})")
+
+    lines.append("Watched pairs:")
+    for pair, candles in candles_by_pair.items():
+        ind = summarize(candles)
         fmt = lambda v, suffix="": f"{v:.4f}{suffix}" if v is not None else "n/a"
         lines.append(
             f"  {pair}: price {fmt(ind['last_price'])}, change over period "
             f"{fmt(ind['pct_change'], '%')}, SMA5 {fmt(ind['sma_short'])}, "
-            f"SMA20 {fmt(ind['sma_long'])}, RSI14 {fmt(ind['rsi'])}"
+            f"SMA20 {fmt(ind['sma_long'])}, RSI14 {fmt(ind['rsi'])}, "
+            f"volume vs avg {fmt(ind['volume_ratio'], 'x')}"
         )
 
     if state["positions"]:
@@ -82,14 +90,14 @@ def run_once(exchange: ExchangeClient):
 
     check_stop_losses(exchange, state)
 
-    prices_by_pair = {}
+    candles_by_pair = {}
     for pair in config.TRADING_PAIRS:
         try:
-            prices_by_pair[pair] = [candle[4] for candle in exchange.fetch_ohlcv(pair)]
+            candles_by_pair[pair] = exchange.fetch_ohlcv(pair)
         except Exception:
             log.exception("Failed to fetch data for %s, skipping it this cycle.", pair)
 
-    summary = build_market_summary(prices_by_pair, state)
+    summary = build_market_summary(candles_by_pair, state)
     decision = ask_grok(summary)
     log.info("Grok decision: %s", decision)
 

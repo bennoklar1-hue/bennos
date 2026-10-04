@@ -69,6 +69,14 @@ Werkzeuge der technischen Analyse statt reinem "Zahlen angucken":
 - RSI über 70 → möglicherweise überkauft (Rückschlag fällig)
 - RSI unter 30 → möglicherweise überverkauft (Erholung fällig)
 
+Zusätzlich bekommt er jetzt noch:
+- **Handelsvolumen** relativ zum Durchschnitt — eine Kursbewegung mit viel
+  höherem Volumen als sonst ist glaubwürdiger als dieselbe Bewegung bei
+  niedrigem Volumen (könnte nur Rauschen sein).
+- **Crypto Fear & Greed Index** (0-100, von der öffentlichen, kostenlosen
+  API alternative.me) — ein Markt-weiter Stimmungs-Indikator als
+  zusätzlicher Kontext neben den Einzelwerten pro Coin.
+
 ## Sicherheitsmechanismen
 
 - **Stop-Loss**: verkauft eine Position automatisch, wenn ihr Kurs seit dem
