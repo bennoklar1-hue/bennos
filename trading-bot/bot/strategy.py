@@ -61,7 +61,11 @@ def check_stop_losses(exchange: ExchangeClient, state: dict) -> bool:
     changed = False
     for pair in list(state["positions"].keys()):
         pos = state["positions"][pair]
-        current_price = exchange.fetch_price(pair)
+        try:
+            current_price = exchange.fetch_price(pair)
+        except Exception:
+            log.exception("Failed to fetch price for stop-loss check on %s, will retry next cycle.", pair)
+            continue
         drop_percent = (pos["entry_price"] - current_price) / pos["entry_price"] * 100
         if drop_percent >= config.STOP_LOSS_PERCENT:
             log.warning("Stop-loss triggered on %s at %.2f%% drop, selling.", pair, drop_percent)
