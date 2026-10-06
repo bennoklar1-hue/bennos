@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 from datetime import datetime, timezone
@@ -16,6 +17,13 @@ DECISION_INTERVAL_HOURS = 4
 CANDLE_TIMEFRAME = "15m"
 CANDLE_MINUTES = 15
 LOOKBACK_CANDLES = 30
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start", help="Start date YYYY-MM-DD (UTC). Defaults to BACKTEST_DAYS ago.")
+    parser.add_argument("--end", help="End date YYYY-MM-DD (UTC). Defaults to now.")
+    return parser.parse_args()
 
 
 def fetch_full_history(exchange, pair, since_ms, until_ms):
@@ -56,14 +64,28 @@ def build_market_summary(prices_by_pair: dict, state: dict) -> str:
 
 
 def main():
+    args = parse_args()
     exchange = ccxt.binance({"enableRateLimit": True})
-    now = exchange.milliseconds()
-    since = now - BACKTEST_DAYS * 24 * 60 * 60 * 1000
+
+    if args.end:
+        now = int(datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000)
+    else:
+        now = exchange.milliseconds()
+
+    if args.start:
+        since = int(datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000)
+    else:
+        since = now - BACKTEST_DAYS * 24 * 60 * 60 * 1000
+
+    period_days = (now - since) / (24 * 60 * 60 * 1000)
     warmup_ms = LOOKBACK_CANDLES * CANDLE_MINUTES * 60 * 1000
     fetch_since = since - warmup_ms
 
-    log.info("Fetching %s days of %s history for %d pairs (no API key needed, public data)...",
-              BACKTEST_DAYS, CANDLE_TIMEFRAME, len(config.TRADING_PAIRS))
+    log.info("Fetching %.0f days of %s history (%s to %s) for %d pairs (no API key needed, public data)...",
+              period_days, CANDLE_TIMEFRAME,
+              datetime.fromtimestamp(since / 1000, tz=timezone.utc).date(),
+              datetime.fromtimestamp(now / 1000, tz=timezone.utc).date(),
+              len(config.TRADING_PAIRS))
     history = {}
     for pair in config.TRADING_PAIRS:
         try:
@@ -165,7 +187,9 @@ def main():
     print("\n" + "=" * 50)
     print("BACKTEST REPORT")
     print("=" * 50)
-    print(f"Period: {BACKTEST_DAYS} days, decision every {DECISION_INTERVAL_HOURS}h")
+    print(f"Period: {period_days:.0f} days ({datetime.fromtimestamp(since / 1000, tz=timezone.utc).date()} "
+          f"to {datetime.fromtimestamp(now / 1000, tz=timezone.utc).date()}), "
+          f"decision every {DECISION_INTERVAL_HOURS}h")
     print(f"Grok calls made: {decision_count}")
     print(f"Starting capital: {starting_capital:.2f} EUR")
     print(f"Final capital:    {final_capital:.2f} EUR")
