@@ -43,15 +43,16 @@ def fetch_full_history(exchange, pair, since_ms, until_ms):
     return [c for c in all_candles if c[0] <= until_ms]
 
 
-def build_market_summary(prices_by_pair: dict, state: dict) -> str:
+def build_market_summary(candles_by_pair: dict, state: dict) -> str:
     lines = [f"Risk level: {config.RISK_LEVEL}", "Watched pairs:"]
-    for pair, closes in prices_by_pair.items():
-        ind = summarize(closes)
+    for pair, candles in candles_by_pair.items():
+        ind = summarize(candles)
         fmt = lambda v, suffix="": f"{v:.4f}{suffix}" if v is not None else "n/a"
         lines.append(
             f"  {pair}: price {fmt(ind['last_price'])}, change over period "
             f"{fmt(ind['pct_change'], '%')}, SMA5 {fmt(ind['sma_short'])}, "
-            f"SMA20 {fmt(ind['sma_long'])}, RSI14 {fmt(ind['rsi'])}"
+            f"SMA20 {fmt(ind['sma_long'])}, RSI14 {fmt(ind['rsi'])}, "
+            f"volume vs avg {fmt(ind['volume_ratio'], 'x')}"
         )
     if state["positions"]:
         lines.append("Open positions:")
@@ -135,7 +136,7 @@ def main():
 
         prices_by_pair = {}
         for pair, candles in history.items():
-            window = [c[4] for c in candles if c[0] <= t][-LOOKBACK_CANDLES:]
+            window = [c for c in candles if c[0] <= t][-LOOKBACK_CANDLES:]
             if len(window) >= 21:
                 prices_by_pair[pair] = window
 
@@ -154,14 +155,14 @@ def main():
             if decision["action"] == "buy" and pair in prices_by_pair and pair not in state["positions"]:
                 invest = state["capital_eur"] * decision.get("size_fraction", 0)
                 if invest > 0:
-                    price = prices_by_pair[pair][-1]
+                    price = prices_by_pair[pair][-1][4]
                     amount = invest / price
                     state["capital_eur"] -= invest
                     state["positions"][pair] = {"amount": amount, "entry_price": price, "since_ts": t}
                     trades.append({"pair": pair, "type": "buy", "price": price, "ts": t, "invest": invest})
             elif decision["action"] == "sell" and pair in state["positions"]:
                 pos = state["positions"][pair]
-                price = prices_by_pair[pair][-1] if pair in prices_by_pair else pos["entry_price"]
+                price = prices_by_pair[pair][-1][4] if pair in prices_by_pair else pos["entry_price"]
                 proceeds = pos["amount"] * price
                 state["capital_eur"] += proceeds
                 trades.append({"pair": pair, "type": "sell", "price": price, "ts": t, "proceeds": proceeds})
