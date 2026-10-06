@@ -1,4 +1,5 @@
 import logging
+import time
 
 from .config import config
 from .exchange_client import ExchangeClient
@@ -82,6 +83,7 @@ def check_stop_losses(exchange: ExchangeClient, state: dict) -> bool:
             proceeds = net_proceeds_after_fee(result, quote_asset)
             state["capital_eur"] += proceeds
             del state["positions"][pair]
+            state.setdefault("cooldowns", {})[pair] = time.time() + config.STOP_LOSS_COOLDOWN_HOURS * 3600
             log.info("Stop-loss sell result: %s | free capital now: %.2f EUR", result, state["capital_eur"])
             changed = True
     if changed:
@@ -112,6 +114,13 @@ def run_once(exchange: ExchangeClient):
             return
         if pair in state["positions"]:
             log.info("Already holding %s, ignoring buy signal.", pair)
+            return
+        cooldown_until = state.get("cooldowns", {}).get(pair)
+        if cooldown_until and time.time() < cooldown_until:
+            log.info(
+                "%s is on stop-loss cooldown for another %.1fh, ignoring buy signal.",
+                pair, (cooldown_until - time.time()) / 3600,
+            )
             return
         invest_amount = state["capital_eur"] * decision["size_fraction"]
         if invest_amount < MIN_ORDER_EUR:

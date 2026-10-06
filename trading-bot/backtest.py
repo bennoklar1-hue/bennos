@@ -97,7 +97,7 @@ def main():
             log.exception("Failed to fetch history for %s, skipping it entirely.", pair)
 
     starting_capital = config.STARTING_CAPITAL_EUR
-    state = {"capital_eur": starting_capital, "positions": {}}
+    state = {"capital_eur": starting_capital, "positions": {}, "cooldowns": {}}
     trades = []
 
     benchmark_value = 0.0
@@ -132,6 +132,7 @@ def main():
                     trades.append({"pair": pair, "type": "stop_loss_sell", "price": price,
                                    "ts": c[0], "proceeds": proceeds})
                     del state["positions"][pair]
+                    state["cooldowns"][pair] = c[0] + config.STOP_LOSS_COOLDOWN_HOURS * 3600 * 1000
                     break
 
         prices_by_pair = {}
@@ -152,7 +153,8 @@ def main():
             log.info("[%s] decision: %s", datetime.fromtimestamp(t / 1000, tz=timezone.utc), decision)
 
             pair = decision.get("pair")
-            if decision["action"] == "buy" and pair in prices_by_pair and pair not in state["positions"]:
+            on_cooldown = pair in state["cooldowns"] and t < state["cooldowns"][pair]
+            if decision["action"] == "buy" and pair in prices_by_pair and pair not in state["positions"] and not on_cooldown:
                 invest = state["capital_eur"] * decision.get("size_fraction", 0)
                 if invest > 0:
                     price = prices_by_pair[pair][-1][4]

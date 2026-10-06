@@ -20,6 +20,7 @@ class Config:
     RISK_LEVEL = os.getenv("RISK_LEVEL", "balanced").strip().lower()
     STARTING_CAPITAL_EUR = float(os.getenv("STARTING_CAPITAL_EUR", "50"))
     STOP_LOSS_PERCENT = float(os.getenv("STOP_LOSS_PERCENT", "10"))
+    STOP_LOSS_COOLDOWN_HOURS = float(os.getenv("STOP_LOSS_COOLDOWN_HOURS", "12"))
     POLL_INTERVAL_MINUTES = int(os.getenv("POLL_INTERVAL_MINUTES", "15"))
 
     DRY_RUN = _bool("DRY_RUN", True)

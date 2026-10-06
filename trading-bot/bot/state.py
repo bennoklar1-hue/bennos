@@ -10,6 +10,7 @@ def _empty_state() -> dict:
     return {
         "capital_eur": config.STARTING_CAPITAL_EUR,
         "positions": {},  # pair -> {"amount": float, "entry_price": float}
+        "cooldowns": {},  # pair -> unix timestamp until which buys are blocked
     }
 
 
