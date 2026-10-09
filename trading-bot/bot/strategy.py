@@ -124,13 +124,21 @@ def run_once(exchange: ExchangeClient):
             return
         invest_amount = state["capital_eur"] * decision["size_fraction"]
         if invest_amount < MIN_ORDER_EUR:
+            if state["capital_eur"] < MIN_ORDER_EUR:
+                log.info(
+                    "Investment amount %.2f EUR below minimum order size (%.2f EUR) and not enough "
+                    "free capital to round up, skipping buy signal.",
+                    invest_amount, MIN_ORDER_EUR,
+                )
+                return
             log.info(
-                "Investment amount %.2f EUR below minimum order size (%.2f EUR), skipping buy signal.",
+                "Investment amount %.2f EUR below minimum order size, rounding up to %.2f EUR "
+                "(enough free capital available).",
                 invest_amount, MIN_ORDER_EUR,
             )
-            return
+            invest_amount = MIN_ORDER_EUR
         result = exchange.create_market_buy(pair, invest_amount)
-        log.info("Buy result on %s (%.0f%% of free capital): %s", pair, decision["size_fraction"] * 100, result)
+        log.info("Buy result on %s (%.2f EUR): %s", pair, invest_amount, result)
         base_asset = pair.split("/")[0]
         amount = net_amount_after_fee(result, base_asset)
         state["capital_eur"] -= invest_amount
